@@ -1417,3 +1417,8 @@ def MSInheritance : InheritableAttr {
 def Unaligned : IgnoredAttr {
   let Spellings = [Keyword<"__unaligned">];
 }
+
+def PrivilegeSeparation : InheritableAttr {
+  let Spellings = [GNU<"privilegeSeparation">];
+  let Args = [IntArgument<"privilegeLevel">];
+}
