@@ -28,7 +28,6 @@
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Scope.h"
 #include "llvm/ADT/StringExtras.h"
-#include "iostream"
 using namespace clang;
 using namespace sema;
 
@@ -3877,8 +3876,23 @@ static bool handleCommonAttributeFeatures(Sema &S, Scope *scope, Decl *D,
 }
 static void handlePrivilegeSeparation(Sema &S, Decl *D,
                                       const AttributeList &Attr) {
-    std::cout << "handle called correctly" << std::endl;
-    return;
+    if (Attr.getNumArgs() > 1) {
+        S.Diag(Attr.getLoc(), diag::err_attribute_too_many_arguments)
+            << Attr.getName() << 2;
+        return;
+    }
+    if (Attr.getNumArgs() == 0) {
+        S.Diag(Attr.getLoc(), diag::err_attribute_too_few_arguments)
+            << Attr.getName() << 2;
+        return;
+    }
+    uint32_t privilegeLevel;
+    if (!checkUInt32Argument(S, Attr, Attr.getArgAsExpr(0), privilegeLevel,1))
+        return;
+    D->addAttr(::new (S.Context)
+         PrivilegeSeparationAttr(Attr.getRange(), S.Context,
+                                 privilegeLevel,
+                                 Attr.getAttributeSpellingListIndex()));
 }
 //===----------------------------------------------------------------------===//
 // Top Level Sema Entry Points
