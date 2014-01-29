@@ -49,6 +49,7 @@
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
+#include <sstream>
 
 using namespace clang;
 using namespace CodeGen;
@@ -709,7 +710,11 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
     B.addAttribute(llvm::Attribute::Cold);
   }
   if (D->hasAttr<PrivilegeSeparationAttr>()) {
-      B.addAttribute(llvm::Attribute::PrivilegeSeparation);
+    PrivilegeSeparationAttr *PSA = D->getAttr<PrivilegeSeparationAttr>();
+    uint32_t pl = PSA->getPrivilegeLevel();
+    std::stringstream ss;
+    ss << pl;
+    B.addAttribute("privilege-separation",ss.str());
   }
   if (D->hasAttr<MinSizeAttr>())
     B.addAttribute(llvm::Attribute::MinSize);
