@@ -28,6 +28,7 @@
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Scope.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Transforms/PrivilegeSeparation.h"
 using namespace clang;
 using namespace sema;
 
@@ -3878,17 +3879,22 @@ static void handlePrivilegeSeparation(Sema &S, Decl *D,
                                       const AttributeList &Attr) {
     if (Attr.getNumArgs() > 1) {
         S.Diag(Attr.getLoc(), diag::err_attribute_too_many_arguments)
-            << Attr.getName() << 2;
+            << Attr.getName() << 1;
         return;
     }
     if (Attr.getNumArgs() == 0) {
         S.Diag(Attr.getLoc(), diag::err_attribute_too_few_arguments)
-            << Attr.getName() << 2;
+            << Attr.getName() << 1;
         return;
     }
     uint32_t privilegeLevel;
     if (!checkUInt32Argument(S, Attr, Attr.getArgAsExpr(0), privilegeLevel,1))
         return;
+    if (privilegeLevel >= NUM_OF_LEVELS) {
+        S.Diag(Attr.getLoc(), diag::err_attribute_argument_out_of_bounds)
+            << Attr.getName() << 1;
+        return;
+    }
     D->addAttr(::new (S.Context)
          PrivilegeSeparationAttr(Attr.getRange(), S.Context,
                                  privilegeLevel,
