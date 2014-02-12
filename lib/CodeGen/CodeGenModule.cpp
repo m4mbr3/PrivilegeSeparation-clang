@@ -50,7 +50,6 @@
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <sstream>
-
 using namespace clang;
 using namespace CodeGen;
 
@@ -1634,6 +1633,11 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
         CXXThreadLocals.push_back(std::make_pair(D, GV));
       setTLSMode(GV, *D);
     }
+    if(D->hasAttr<PrivilegeSeparationAttr>()) {
+        PrivilegeSeparationAttr *PSA = D->getAttr<PrivilegeSeparationAttr>();
+        uint32_t pl = PSA->getPrivilegeLevel();
+        GV->setPrivilegeSeparation(pl);
+    }
 
     // If required by the ABI, treat declarations of static data members with
     // inline initializers as definitions.
@@ -1899,6 +1903,11 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
   else if (D->hasAttr<DLLExportAttr>())
     GV->setDLLStorageClass(llvm::GlobalVariable::DLLExportStorageClass);
 
+  if(D->hasAttr<PrivilegeSeparationAttr>()) {
+    PrivilegeSeparationAttr *PSA = D->getAttr<PrivilegeSeparationAttr>();
+    uint32_t pl = PSA->getPrivilegeLevel();
+    GV->setPrivilegeSeparation(pl);
+  }
   // If required by the ABI, give definitions of static data members with inline
   // initializers linkonce_odr linkage.
   if (getCXXABI().isInlineInitializedStaticDataMemberLinkOnce() &&
@@ -1927,7 +1936,6 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
     llvm::MDNode *ThisGlobal = llvm::MDNode::get(VMContext, GlobalToAdd);
     DynamicInitializers->addOperand(ThisGlobal);
   }
-
   // Emit global variable debug information.
   if (CGDebugInfo *DI = getModuleDebugInfo())
     if (getCodeGenOpts().getDebugInfo() >= CodeGenOptions::LimitedDebugInfo)

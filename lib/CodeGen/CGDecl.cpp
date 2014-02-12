@@ -208,7 +208,11 @@ CodeGenFunction::CreateStaticVarDecl(const VarDecl &D,
                              AddrSpace);
   GV->setAlignment(getContext().getDeclAlign(&D).getQuantity());
   CGM.setGlobalVisibility(GV, &D);
-
+  if(D.hasAttr<PrivilegeSeparationAttr>()) {
+    PrivilegeSeparationAttr *PSA = D.getAttr<PrivilegeSeparationAttr>();
+    uint32_t pl = PSA->getPrivilegeLevel();
+    GV->setPrivilegeSeparation(pl);
+  }
   if (D.getTLSKind())
     CGM.setTLSMode(GV, D);
 
@@ -269,6 +273,11 @@ CodeGenFunction::AddInitializerToStaticVarDecl(const VarDecl &D,
     llvm::Constant *NewPtrForOldDecl =
     llvm::ConstantExpr::getBitCast(GV, OldGV->getType());
     OldGV->replaceAllUsesWith(NewPtrForOldDecl);
+    if(D.hasAttr<PrivilegeSeparationAttr>()) {
+        PrivilegeSeparationAttr *PSA = D.getAttr<PrivilegeSeparationAttr>();
+        uint32_t pl = PSA->getPrivilegeLevel();
+        GV->setPrivilegeSeparation(pl);
+    }
 
     // Erase the old global, since it is no longer used.
     OldGV->eraseFromParent();
@@ -330,6 +339,12 @@ void CodeGenFunction::EmitStaticVarDecl(const VarDecl &D,
 
   if (const SectionAttr *SA = D.getAttr<SectionAttr>())
     var->setSection(SA->getName());
+
+  if(D.hasAttr<PrivilegeSeparationAttr>()) {
+    PrivilegeSeparationAttr *PSA = D.getAttr<PrivilegeSeparationAttr>();
+    uint32_t pl = PSA->getPrivilegeLevel();
+    var->setPrivilegeSeparation(pl);
+  }
 
   if (D.hasAttr<UsedAttr>())
     CGM.AddUsedGlobal(var);
@@ -718,7 +733,7 @@ static bool canEmitInitWithFewStoresAfterMemset(llvm::Constant *Init,
     }
     return true;
   }
-  
+
   if (llvm::ConstantDataSequential *CDS =
         dyn_cast<llvm::ConstantDataSequential>(Init)) {
     for (unsigned i = 0, e = CDS->getNumElements(); i != e; ++i) {
@@ -747,8 +762,8 @@ static void emitStoresForInitAfterMemset(llvm::Constant *Init, llvm::Value *Loc,
     Builder.CreateStore(Init, Loc, isVolatile);
     return;
   }
-  
-  if (llvm::ConstantDataSequential *CDS = 
+
+  if (llvm::ConstantDataSequential *CDS =
         dyn_cast<llvm::ConstantDataSequential>(Init)) {
     for (unsigned i = 0, e = CDS->getNumElements(); i != e; ++i) {
       llvm::Constant *Elt = CDS->getElementAsConstant(i);
@@ -1136,6 +1151,12 @@ void CodeGenFunction::EmitAutoVarInit(const AutoVarEmission &emission) {
                                constant, Name);
     GV->setAlignment(alignment.getQuantity());
     GV->setUnnamedAddr(true);
+
+    if(D.hasAttr<PrivilegeSeparationAttr>()) {
+        PrivilegeSeparationAttr *PSA = D.getAttr<PrivilegeSeparationAttr>();
+        uint32_t pl = PSA->getPrivilegeLevel();
+        GV->setPrivilegeSeparation(pl);
+    }
 
     llvm::Value *SrcPtr = GV;
     if (SrcPtr->getType() != BP)
